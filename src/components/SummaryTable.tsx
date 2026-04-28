@@ -74,6 +74,7 @@ export function SummaryTable({ years }: Props) {
     { label: '収入', getValue: (y) => y.incomeAnnual, color: () => 'text-emerald-400' },
     { label: '支出', getValue: (y) => y.expensesAnnual, color: () => 'text-white/60' },
     { label: '積立', getValue: (y) => y.contributionsAnnual, color: () => 'text-teal-400' },
+    { label: '取り崩し', getValue: (y) => y.drawdownsAnnual, color: () => 'text-red-400', prefix: () => '−' },
     {
       label: '収支',
       getValue: (y) => y.netAnnual,

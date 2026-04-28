@@ -7,6 +7,7 @@ import {
   type SimulationInput,
   type SimulationResult,
 } from '../types/simulation'
+
 import { calculate } from '../utils/simulation'
 
 const AGE = 35
@@ -26,10 +27,10 @@ const DEFAULT_INPUT: SimulationInput = {
     new ExpenseItem('default-expense-2', { age: AGE, month: 1 }, { age: 90, month: 12 }, 10, null, '住宅'),
   ],
   assetItems: [
-    new AssetItem('default-asset-1', '現金・預金', 500, 0, { age: AGE, month: 1 }, []),
+    new AssetItem('default-asset-1', '現金・預金', 500, 0, { age: AGE, month: 1 }, [], []),
     new AssetItem('default-asset-2', '積み立て', 0, 5, { age: AGE, month: 1 }, [
       new ContributionPeriod('default-contrib-1', 3, { age: AGE, month: 1 }, null),
-    ]),
+    ], []),
   ],
 }
 

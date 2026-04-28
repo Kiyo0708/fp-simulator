@@ -70,6 +70,19 @@ export class ContributionPeriod {
   }
 }
 
+/** 資産の取り崩し期間。残高を減らし、引き出した分は資金余剰に加算される */
+export class WithdrawalPeriod {
+  id: string
+  monthlyAmount: number  // 万円/月（引き出し額）
+  from: AgeMonth
+  /** null = 終了なし */
+  to: AgeMonth | null
+
+  constructor(id: string, monthlyAmount: number, from: AgeMonth, to: AgeMonth | null) {
+    this.id = id; this.monthlyAmount = monthlyAmount; this.from = from; this.to = to
+  }
+}
+
 export class AssetItem {
   id: string
   category: AssetCategory
@@ -77,10 +90,12 @@ export class AssetItem {
   annualReturn: number
   from: AgeMonth
   contributions: ContributionPeriod[]
+  drawdowns: WithdrawalPeriod[]
 
-  constructor(id: string, category: AssetCategory, initialAmount: number, annualReturn: number, from: AgeMonth, contributions: ContributionPeriod[]) {
+  constructor(id: string, category: AssetCategory, initialAmount: number, annualReturn: number, from: AgeMonth, contributions: ContributionPeriod[], drawdowns: WithdrawalPeriod[]) {
     this.id = id; this.category = category; this.initialAmount = initialAmount
-    this.annualReturn = annualReturn; this.from = from; this.contributions = contributions
+    this.annualReturn = annualReturn; this.from = from
+    this.contributions = contributions; this.drawdowns = drawdowns
   }
 }
 
@@ -121,6 +136,7 @@ export interface YearlyData {
   expensesAnnual: number
   netAnnual: number
   contributionsAnnual: number                              // 年間積立総額
+  drawdownsAnnual: number                                  // 年間取り崩し総額
   investmentReturnAnnual: number                           // 年間運用益
   liquidSavings: number                                    // 現金余剰（累積）
   assetCategoryBalances: Partial<Record<AssetCategory, number>>  // カテゴリ別残高

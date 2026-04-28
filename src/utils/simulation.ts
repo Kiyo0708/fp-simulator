@@ -4,6 +4,7 @@ import type {
   YearlyData,
   IPlanItem,
   ContributionPeriod,
+  WithdrawalPeriod,
   IncomeCategory,
   ExpenseCategory,
   AssetCategory,
@@ -23,7 +24,7 @@ function getItemAnnualAmount(item: IPlanItem, age: number): number {
   return item.value * getActiveMonths(item.from, item.to, age)
 }
 
-function getContributionAnnualAmount(period: ContributionPeriod, age: number): number {
+function getPeriodAnnualAmount(period: ContributionPeriod | WithdrawalPeriod, age: number): number {
   if (period.to === null) {
     if (age < period.from.age) return 0
     const startMonth = age === period.from.age ? period.from.month : 1
@@ -76,8 +77,9 @@ export function calculate(input: SimulationInput): SimulationResult {
       }
     }
 
-    // 資産運用
+    // 資産運用（積立・取り崩し・運用益）
     let totalContributions = 0
+    let totalDrawdowns = 0
     let totalReturnAmount = 0
     const assetCategoryBalances = {} as Partial<Record<AssetCategory, number>>
 
@@ -85,31 +87,40 @@ export function calculate(input: SimulationInput): SimulationResult {
       if (!assetBalances.has(asset.id)) continue
       const prevBalance = assetBalances.get(asset.id)!
 
+      // 積立
       let annualContrib = 0
       for (const period of asset.contributions) {
-        annualContrib += getContributionAnnualAmount(period, age)
+        annualContrib += getPeriodAnnualAmount(period, age)
       }
       totalContributions += annualContrib
 
+      // 運用益
       const returnAmount = prevBalance > 0 ? prevBalance * (asset.annualReturn / 100) : 0
       totalReturnAmount += returnAmount
 
-      const newBalance = prevBalance + annualContrib + returnAmount
+      // 取り崩し（残高を超えないようにクランプ）
+      let annualDrawdown = 0
+      for (const period of asset.drawdowns) {
+        annualDrawdown += getPeriodAnnualAmount(period, age)
+      }
+      const balanceBeforeDrawdown = prevBalance + annualContrib + returnAmount
+      const actualDrawdown = Math.min(annualDrawdown, Math.max(0, balanceBeforeDrawdown))
+      totalDrawdowns += actualDrawdown
+
+      const newBalance = Math.max(0, balanceBeforeDrawdown - actualDrawdown)
       assetBalances.set(asset.id, newBalance)
 
-      // カテゴリ別残高を集計
       assetCategoryBalances[asset.category] =
         (assetCategoryBalances[asset.category] ?? 0) + newBalance
     }
 
-    liquidSavings += annualIncome - annualExpenses - totalContributions
+    // 資金余剰: 収入 − 支出 − 積立 + 取り崩し
+    liquidSavings += annualIncome - annualExpenses - totalContributions + totalDrawdowns
 
     let totalInvestments = 0
     for (const balance of assetBalances.values()) totalInvestments += balance
-    // 資産残高 = 運用資産 + 資金余剰（収入 − 支出 − 積立の累積）
     const assetsEnd = totalInvestments + liquidSavings
 
-    // 資産ごとの残高（表のブレークダウン用）
     const assetItemBalances = assetItems
       .filter((a) => assetBalances.has(a.id))
       .map((a) => ({ id: a.id, category: a.category, balance: assetBalances.get(a.id)! }))
@@ -121,6 +132,7 @@ export function calculate(input: SimulationInput): SimulationResult {
       expensesAnnual: annualExpenses,
       netAnnual: annualIncome - annualExpenses,
       contributionsAnnual: totalContributions,
+      drawdownsAnnual: totalDrawdowns,
       investmentReturnAnnual: totalReturnAmount,
       liquidSavings,
       assetCategoryBalances,
