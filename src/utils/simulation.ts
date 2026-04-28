@@ -108,6 +108,11 @@ export function calculate(input: SimulationInput): SimulationResult {
     for (const balance of assetBalances.values()) totalInvestments += balance
     const assetsEnd = liquidSavings + totalInvestments
 
+    // 資産ごとの残高（表のブレークダウン用）
+    const assetItemBalances = assetItems
+      .filter((a) => assetBalances.has(a.id))
+      .map((a) => ({ id: a.id, category: a.category, balance: assetBalances.get(a.id)! }))
+
     years.push({
       age,
       spouseAge,
@@ -118,6 +123,7 @@ export function calculate(input: SimulationInput): SimulationResult {
       investmentReturnAnnual: totalReturnAmount,
       liquidSavings,
       assetCategoryBalances,
+      assetItemBalances,
       assetsEnd,
       incomeBreakdown,
       expenseBreakdown,

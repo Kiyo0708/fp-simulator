@@ -124,6 +124,7 @@ export interface YearlyData {
   investmentReturnAnnual: number                           // 年間運用益
   liquidSavings: number                                    // 現金余剰（累積）
   assetCategoryBalances: Partial<Record<AssetCategory, number>>  // カテゴリ別残高
+  assetItemBalances: Array<{ id: string; category: AssetCategory; balance: number }>  // 資産ごとの残高
   assetsEnd: number
   incomeBreakdown: Partial<Record<IncomeCategory, number>>
   expenseBreakdown: Partial<Record<ExpenseCategory, number>>
