@@ -106,8 +106,8 @@ export function calculate(input: SimulationInput): SimulationResult {
 
     let totalInvestments = 0
     for (const balance of assetBalances.values()) totalInvestments += balance
-    // 資産残高 = 入力した資産の合計のみ（収入・支出の余剰は含めない）
-    const assetsEnd = totalInvestments
+    // 資産残高 = 運用資産 + 資金余剰（収入 − 支出 − 積立の累積）
+    const assetsEnd = totalInvestments + liquidSavings
 
     // 資産ごとの残高（表のブレークダウン用）
     const assetItemBalances = assetItems

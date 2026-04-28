@@ -28,6 +28,7 @@ const ASSET_COLORS: Record<AssetCategory, string> = {
 
 const CONTRIB_COLOR = '#34d399'
 const INCOME_COLOR = '#10b981'
+const SURPLUS_COLOR = '#94a3b8'
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -63,6 +64,7 @@ export function AssetChart({ years }: Props) {
 
   const assetData = years.map((y) => ({
     age: y.age,
+    資金余剰: y.liquidSavings,
     ...Object.fromEntries(assetCategories.map((cat) => [cat, y.assetCategoryBalances[cat] ?? 0])),
   }))
 
@@ -117,6 +119,10 @@ export function AssetChart({ years }: Props) {
         ) : (
           <AreaChart data={assetData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
             <defs>
+              <linearGradient id="grad-surplus" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={SURPLUS_COLOR} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={SURPLUS_COLOR} stopOpacity={0.02} />
+              </linearGradient>
               {assetCategories.map((cat) => (
                 <linearGradient key={cat} id={`grad-${cat}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={ASSET_COLORS[cat]} stopOpacity={0.5} />
@@ -130,6 +136,8 @@ export function AssetChart({ years }: Props) {
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingTop: 16 }} />
             <ReferenceLine y={0} stroke="rgba(239,68,68,0.5)" strokeDasharray="4 4" />
+            <Area type="monotone" dataKey="資金余剰" stackId="assets"
+              stroke={SURPLUS_COLOR} fill="url(#grad-surplus)" strokeWidth={1} />
             {assetCategories.map((cat) => (
               <Area key={cat} type="monotone" dataKey={cat} stackId="assets"
                 stroke={ASSET_COLORS[cat]} fill={`url(#grad-${cat})`} strokeWidth={1} />

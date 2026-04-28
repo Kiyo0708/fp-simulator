@@ -146,27 +146,45 @@ export function SummaryTable({ years }: Props) {
                 </tr>
 
                 {/* 資産ごとのブレークダウン */}
-                {row.expandable && assetExpanded && Array.from(assetMeta.entries()).map(([id, meta]) => (
-                  <tr key={id} className="border-b border-white/[0.04] bg-white/[0.008]">
-                    <td className={`${stickyCell} bg-[#060a11] pl-8 pr-4 py-2 whitespace-nowrap`}>
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: ASSET_CATEGORY_COLORS[meta.category] }}
-                        />
-                        <span className="text-xs text-white/40">{meta.label}</span>
-                      </span>
-                    </td>
-                    {years.map((y) => {
-                      const balance = assetBalanceMap.get(id)?.get(y.age) ?? 0
-                      return (
-                        <td key={y.age} className="px-3 py-2 text-right text-xs text-white/40 tabular-nums whitespace-nowrap">
-                          {fmt(balance)}
+                {row.expandable && assetExpanded && (
+                  <>
+                    {Array.from(assetMeta.entries()).map(([id, meta]) => (
+                      <tr key={id} className="border-b border-white/[0.04] bg-white/[0.008]">
+                        <td className={`${stickyCell} bg-[#060a11] pl-8 pr-4 py-2 whitespace-nowrap`}>
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: ASSET_CATEGORY_COLORS[meta.category] }}
+                            />
+                            <span className="text-xs text-white/40">{meta.label}</span>
+                          </span>
                         </td>
-                      )
-                    })}
-                  </tr>
-                ))}
+                        {years.map((y) => {
+                          const balance = assetBalanceMap.get(id)?.get(y.age) ?? 0
+                          return (
+                            <td key={y.age} className="px-3 py-2 text-right text-xs text-white/40 tabular-nums whitespace-nowrap">
+                              {fmt(balance)}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                    {/* 資金余剰行 */}
+                    <tr className="border-b border-white/[0.04] bg-white/[0.008]">
+                      <td className={`${stickyCell} bg-[#060a11] pl-8 pr-4 py-2 whitespace-nowrap`}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-400" />
+                          <span className="text-xs text-white/40">資金余剰</span>
+                        </span>
+                      </td>
+                      {years.map((y) => (
+                        <td key={y.age} className={`px-3 py-2 text-right text-xs tabular-nums whitespace-nowrap ${y.liquidSavings >= 0 ? 'text-white/40' : 'text-red-400/70'}`}>
+                          {fmt(y.liquidSavings)}
+                        </td>
+                      ))}
+                    </tr>
+                  </>
+                )}
               </>
             ))}
           </tbody>
