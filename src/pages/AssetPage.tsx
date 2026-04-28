@@ -153,7 +153,7 @@ export default function AssetPage() {
             className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none transition-colors" />
         </div>
       </div>
-      <AgeMonthInput label="開始年月" value={assetForm.from} onChange={(v) => setAF('from', v)} />
+      <AgeMonthInput label="開始年月" value={assetForm.from} onChange={(v) => setAF('from', v)} repCurrentAge={repAge} />
       <div className="flex gap-2">
         <button type="button" onClick={() => setEditingAssetId(null)}
           className="flex-1 py-2 rounded-xl text-white/50 border border-white/10 hover:bg-white/5 text-sm transition-colors">キャンセル</button>
@@ -173,7 +173,7 @@ export default function AssetPage() {
           onChange={(e) => setCF('monthlyAmount', Number(e.target.value))}
           className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-right focus:border-amber-400/40 focus:outline-none transition-colors" />
       </div>
-      <AgeMonthInput label="開始" value={contribForm.from} onChange={(v) => setCF('from', v)} />
+      <AgeMonthInput label="開始" value={contribForm.from} onChange={(v) => setCF('from', v)} repCurrentAge={repAge} />
       <div className="flex items-center gap-3">
         <label className="text-sm text-white/60 whitespace-nowrap">終了</label>
         <button
@@ -186,7 +186,7 @@ export default function AssetPage() {
           {contribForm.to === null ? '終了なし' : '終了あり'}
         </button>
         {contribForm.to !== null && (
-          <AgeMonthInput label="" value={contribForm.to} onChange={(v) => setCF('to', v)} />
+          <AgeMonthInput label="" value={contribForm.to} onChange={(v) => setCF('to', v)} repCurrentAge={repAge} />
         )}
       </div>
       <div className="flex gap-2">

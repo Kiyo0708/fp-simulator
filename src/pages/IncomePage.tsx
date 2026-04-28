@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useSimulationStore } from '../store/simulationStore'
@@ -24,45 +24,46 @@ interface FormState {
   value: number
 }
 
-function defaultForm(repAge: number): FormState {
-  return {
+export default function IncomePage() {
+  const { input, setIncomeItems } = useSimulationStore()
+  const navigate = useNavigate()
+  const rep = input.family.representative
+  const repAge = rep.age
+
+  // 家族メンバー一覧（世帯全体 + 実際に登録されたメンバー）
+  const familyOptions = useMemo(() => {
+    const opts: { id: string | null; label: string; currentAge: number | null }[] = [
+      { id: null, label: '世帯全体', currentAge: null },
+      { id: 'representative', label: `${rep.name || '家族代表者'}（${rep.age}歳）`, currentAge: rep.age },
+    ]
+    if (input.family.hasSpouse) {
+      const s = input.family.spouse
+      opts.push({ id: 'spouse', label: `${s.name || '配偶者'}（${s.age}歳）`, currentAge: s.age })
+    }
+    for (const c of input.family.children) {
+      opts.push({ id: c.id, label: `${c.name || 'お子さま'}（${c.age}歳）`, currentAge: c.age })
+    }
+    return opts
+  }, [rep, input.family])
+
+  const defaultForm = (): FormState => ({
     familyMemberId: 'representative',
     category: '給与',
     isOneTime: false,
     from: { age: repAge, month: 1 },
-    to: { age: 65, month: 12 },
+    to: { age: repAge + 30, month: 12 },
     value: 30,
-  }
-}
-
-function fmtPeriod(item: IncomeItem): string {
-  const from = `${item.from.age}歳${item.from.month}月`
-  if (item.to === null) return `${from} 一時金`
-  return `${from} 〜 ${item.to.age}歳${item.to.month}月`
-}
-
-function fmtValue(item: IncomeItem): string {
-  return item.to === null
-    ? `${item.value.toLocaleString()}万円（一時金）`
-    : `${item.value.toLocaleString()}万円/月`
-}
-
-function memberLabel(id: string | null): string {
-  if (id === null) return '世帯全体'
-  if (id === 'representative') return '家族代表者'
-  if (id === 'spouse') return '配偶者'
-  return id
-}
-
-export default function IncomePage() {
-  const { input, setIncomeItems } = useSimulationStore()
-  const navigate = useNavigate()
-  const repAge = input.family.representative.age
-  const hasSpouse = input.family.hasSpouse
+  })
 
   const [items, setItems] = useState<IncomeItem[]>(input.incomeItems)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<FormState>(defaultForm(repAge))
+  const [form, setForm] = useState<FormState>(defaultForm())
+
+  // 現在フォームで選択中の人物の現在年齢
+  const selectedPersonAge = useMemo(
+    () => familyOptions.find((o) => o.id === form.familyMemberId)?.currentAge ?? null,
+    [familyOptions, form.familyMemberId]
+  )
 
   const startEdit = (item: IncomeItem) => {
     setForm({
@@ -70,14 +71,14 @@ export default function IncomePage() {
       category: item.category,
       isOneTime: item.to === null,
       from: item.from,
-      to: item.to ?? { age: 65, month: 12 },
+      to: item.to ?? { age: repAge + 30, month: 12 },
       value: item.value,
     })
     setEditingId(item.id)
   }
 
   const startAdd = () => {
-    setForm(defaultForm(repAge))
+    setForm(defaultForm())
     setEditingId('__new__')
   }
 
@@ -110,6 +111,29 @@ export default function IncomePage() {
   const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }))
 
+  // 対象者変更時：from を「その人の現在年齢」相当にリセット
+  const onPersonChange = (id: string | null) => {
+    setF('familyMemberId', id)
+    // 代表者基準に変換: 現在時点 = repAge
+    setForm((f) => ({ ...f, familyMemberId: id, from: { age: repAge, month: f.from.month } }))
+  }
+
+  const fmtPeriod = (item: IncomeItem) => {
+    const personAge = familyOptions.find((o) => o.id === item.familyMemberId)?.currentAge ?? repAge
+    const ageDiff = repAge - personAge
+    const fromDisplay = `${item.from.age - ageDiff}歳${item.from.month}月`
+    if (item.to === null) return `${fromDisplay} 一時金`
+    return `${fromDisplay} 〜 ${item.to.age - ageDiff}歳${item.to.month}月`
+  }
+
+  const fmtValue = (item: IncomeItem) =>
+    item.to === null
+      ? `${item.value.toLocaleString()}万円（一時金）`
+      : `${item.value.toLocaleString()}万円/月`
+
+  const memberLabel = (id: string | null) =>
+    familyOptions.find((o) => o.id === id)?.label ?? '世帯全体'
+
   const InlineForm = () => (
     <div className="flex flex-col gap-4 pt-4 border-t border-white/10 mt-4">
       {/* Category */}
@@ -117,16 +141,12 @@ export default function IncomePage() {
         <label className="text-sm text-white/60">カテゴリ</label>
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setF('category', cat)}
+            <button key={cat} type="button" onClick={() => setF('category', cat)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                 form.category === cat
                   ? 'bg-amber-400/20 border-amber-400/40 text-amber-300'
                   : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
-              }`}
-            >
+              }`}>
               {cat}
             </button>
           ))}
@@ -135,15 +155,17 @@ export default function IncomePage() {
 
       {/* Family member */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-white/60">対象</label>
+        <label className="text-sm text-white/60">対象者</label>
         <select
           value={form.familyMemberId ?? '__null__'}
-          onChange={(e) => setF('familyMemberId', e.target.value === '__null__' ? null : e.target.value)}
+          onChange={(e) => onPersonChange(e.target.value === '__null__' ? null : e.target.value)}
           className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-amber-400/40 focus:outline-none transition-colors"
         >
-          <option value="representative" className="bg-[#0f1623]">家族代表者</option>
-          {hasSpouse && <option value="spouse" className="bg-[#0f1623]">配偶者</option>}
-          <option value="__null__" className="bg-[#0f1623]">世帯全体</option>
+          {familyOptions.map((o) => (
+            <option key={o.id ?? '__null__'} value={o.id ?? '__null__'} className="bg-[#0f1623]">
+              {o.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -152,56 +174,52 @@ export default function IncomePage() {
         <label className="text-sm text-white/60">種別</label>
         <div className="flex gap-2">
           {[false, true].map((isOne) => (
-            <button
-              key={String(isOne)}
-              type="button"
-              onClick={() => setF('isOneTime', isOne)}
+            <button key={String(isOne)} type="button" onClick={() => setF('isOneTime', isOne)}
               className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
                 form.isOneTime === isOne
                   ? 'bg-amber-400/20 border-amber-400/40 text-amber-300'
                   : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
-              }`}
-            >
+              }`}>
               {isOne ? '一時金' : '月次（継続）'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Period */}
-      <AgeMonthInput label="開始" value={form.from} onChange={(v) => setF('from', v)} />
+      <AgeMonthInput
+        label="開始"
+        value={form.from}
+        onChange={(v) => setF('from', v)}
+        repCurrentAge={repAge}
+        personCurrentAge={selectedPersonAge}
+      />
       {!form.isOneTime && (
-        <AgeMonthInput label="終了" value={form.to} onChange={(v) => setF('to', v)} />
+        <AgeMonthInput
+          label="終了"
+          value={form.to}
+          onChange={(v) => setF('to', v)}
+          repCurrentAge={repAge}
+          personCurrentAge={selectedPersonAge}
+        />
       )}
 
-      {/* Value */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm text-white/60">
           {form.isOneTime ? '金額（万円）' : '月額（万円/月）'}
         </label>
-        <input
-          type="number"
-          min={0}
-          value={form.value}
+        <input type="number" min={0} value={form.value}
           onChange={(e) => setF('value', Number(e.target.value))}
-          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors"
-        />
+          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors" />
       </div>
 
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={cancelEdit}
-          className="flex-1 py-2 rounded-xl text-white/50 border border-white/10 hover:bg-white/5 text-sm transition-colors"
-        >
+        <button type="button" onClick={cancelEdit}
+          className="flex-1 py-2 rounded-xl text-white/50 border border-white/10 hover:bg-white/5 text-sm transition-colors">
           キャンセル
         </button>
-        <button
-          type="button"
-          onClick={commitForm}
+        <button type="button" onClick={commitForm}
           className="flex-1 py-2 rounded-xl text-black font-bold text-sm"
-          style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}
-        >
+          style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
           確定
         </button>
       </div>
@@ -216,19 +234,12 @@ export default function IncomePage() {
         <div className="flex flex-col gap-3 mb-4">
           {items.map((item) => (
             <div key={item.id} className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              {editingId === item.id ? (
-                <InlineForm />
-              ) : (
+              {editingId === item.id ? <InlineForm /> : (
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span
-                        className="px-2 py-0.5 rounded-md text-xs font-medium"
-                        style={{
-                          background: CATEGORY_COLORS[item.category] + '22',
-                          color: CATEGORY_COLORS[item.category],
-                        }}
-                      >
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium"
+                        style={{ background: CATEGORY_COLORS[item.category] + '22', color: CATEGORY_COLORS[item.category] }}>
                         {item.category}
                       </span>
                       <span className="text-xs text-white/40">{memberLabel(item.familyMemberId)}</span>
@@ -237,25 +248,16 @@ export default function IncomePage() {
                     <p className="text-xs text-white/40">{fmtPeriod(item)}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => startEdit(item)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors"
-                    >
-                      編集
-                    </button>
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-red-400/70 hover:bg-red-400/10 transition-colors"
-                    >
-                      削除
-                    </button>
+                    <button onClick={() => startEdit(item)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">編集</button>
+                    <button onClick={() => removeItem(item.id)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-red-400/70 hover:bg-red-400/10 transition-colors">削除</button>
                   </div>
                 </div>
               )}
             </div>
           ))}
 
-          {/* Add form */}
           {editingId === '__new__' && (
             <div className="rounded-2xl bg-white/5 border border-amber-400/20 p-4">
               <p className="text-sm font-semibold text-amber-300 mb-1">新しい収入を追加</p>
@@ -265,29 +267,20 @@ export default function IncomePage() {
         </div>
 
         {editingId === null && (
-          <button
-            type="button"
-            onClick={startAdd}
-            className="w-full py-3 rounded-2xl text-sm text-white/50 border border-dashed border-white/20 hover:border-amber-400/40 hover:text-amber-300 transition-colors mb-6"
-          >
+          <button type="button" onClick={startAdd}
+            className="w-full py-3 rounded-2xl text-sm text-white/50 border border-dashed border-white/20 hover:border-amber-400/40 hover:text-amber-300 transition-colors mb-6">
             ＋ 収入を追加
           </button>
         )}
 
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/result')}
-            className="flex-1 py-3 rounded-2xl text-white/60 border border-white/10 hover:bg-white/5 transition-colors"
-          >
+          <button type="button" onClick={() => navigate('/result')}
+            className="flex-1 py-3 rounded-2xl text-white/60 border border-white/10 hover:bg-white/5 transition-colors">
             キャンセル
           </button>
-          <button
-            type="button"
-            onClick={save}
+          <button type="button" onClick={save}
             className="flex-1 py-3 rounded-2xl font-bold text-black"
-            style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}
-          >
+            style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
             保存して戻る
           </button>
         </div>
