@@ -6,18 +6,47 @@ interface Props {
 
 const fmt = (v: number) => `${Math.round(v).toLocaleString()}`
 
-const ROWS: { label: string; key: keyof Pick<YearlyData, 'incomeAnnual' | 'expensesAnnual' | 'netAnnual' | 'assetsEnd'>; color?: (v: number) => string }[] = [
-  { label: '収入', key: 'incomeAnnual', color: () => 'text-emerald-400' },
-  { label: '支出', key: 'expensesAnnual', color: () => 'text-white/60' },
+interface RowDef {
+  label: string
+  getValue: (y: YearlyData) => number
+  color: (v: number) => string
+  bold?: boolean
+  prefix?: (v: number) => string
+}
+
+const ROWS: RowDef[] = [
+  {
+    label: '収入',
+    getValue: (y) => y.incomeAnnual,
+    color: () => 'text-emerald-400',
+  },
+  {
+    label: '支出',
+    getValue: (y) => y.expensesAnnual,
+    color: () => 'text-white/60',
+  },
+  {
+    label: '積立',
+    getValue: (y) => y.contributionsAnnual,
+    color: () => 'text-teal-400',
+  },
   {
     label: '収支',
-    key: 'netAnnual',
+    getValue: (y) => y.netAnnual,
     color: (v) => (v >= 0 ? 'text-emerald-400' : 'text-red-400'),
+    prefix: (v) => (v >= 0 ? '+' : ''),
+  },
+  {
+    label: '運用益',
+    getValue: (y) => y.investmentReturnAnnual,
+    color: () => 'text-amber-400',
+    prefix: () => '+',
   },
   {
     label: '資産残高',
-    key: 'assetsEnd',
+    getValue: (y) => y.assetsEnd,
     color: (v) => (v >= 0 ? 'text-white/90' : 'text-red-400'),
+    bold: true,
   },
 ]
 
@@ -28,15 +57,11 @@ export function SummaryTable({ years }: Props) {
         <table className="text-sm border-collapse">
           <thead>
             <tr className="border-b border-white/10">
-              {/* 左端の行ラベル列ヘッダー */}
               <th className="sticky left-0 z-10 bg-[#080c14] px-4 py-3 text-left text-white/40 font-medium whitespace-nowrap min-w-[5rem]">
                 万円
               </th>
               {years.map((y) => (
-                <th
-                  key={y.age}
-                  className="px-3 py-3 text-right text-white/40 font-medium whitespace-nowrap min-w-[5rem]"
-                >
+                <th key={y.age} className="px-3 py-3 text-right text-white/40 font-medium whitespace-nowrap min-w-[5rem]">
                   {y.age}歳
                 </th>
               ))}
@@ -45,22 +70,17 @@ export function SummaryTable({ years }: Props) {
           <tbody>
             {ROWS.map((row, ri) => (
               <tr
-                key={row.key}
-                className={`border-b border-white/5 ${ri % 2 === 0 ? '' : 'bg-white/[0.015]'} ${
-                  row.key === 'assetsEnd' ? 'font-bold' : ''
-                }`}
+                key={row.label}
+                className={`border-b border-white/5 ${ri % 2 === 0 ? '' : 'bg-white/[0.015]'} ${row.bold ? 'font-bold' : ''}`}
               >
-                {/* 行ラベル（スクロールしても固定） */}
                 <td className="sticky left-0 z-10 bg-[#080c14] px-4 py-2.5 text-white/60 font-medium whitespace-nowrap">
                   {row.label}
                 </td>
                 {years.map((y) => {
-                  const v = y[row.key]
-                  const colorClass = row.color ? row.color(v) : 'text-white/80'
+                  const v = row.getValue(y)
                   return (
-                    <td key={y.age} className={`px-3 py-2.5 text-right whitespace-nowrap tabular-nums ${colorClass}`}>
-                      {row.key === 'netAnnual' && v >= 0 ? '+' : ''}
-                      {fmt(v)}
+                    <td key={y.age} className={`px-3 py-2.5 text-right whitespace-nowrap tabular-nums ${row.color(v)}`}>
+                      {row.prefix ? row.prefix(v) : ''}{fmt(v)}
                     </td>
                   )
                 })}

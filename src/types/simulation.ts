@@ -120,6 +120,10 @@ export interface YearlyData {
   incomeAnnual: number
   expensesAnnual: number
   netAnnual: number
+  contributionsAnnual: number                              // 年間積立総額
+  investmentReturnAnnual: number                           // 年間運用益
+  liquidSavings: number                                    // 現金余剰（累積）
+  assetCategoryBalances: Partial<Record<AssetCategory, number>>  // カテゴリ別残高
   assetsEnd: number
   incomeBreakdown: Partial<Record<IncomeCategory, number>>
   expenseBreakdown: Partial<Record<ExpenseCategory, number>>

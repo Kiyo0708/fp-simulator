@@ -6,14 +6,11 @@ import type {
   ContributionPeriod,
   IncomeCategory,
   ExpenseCategory,
+  AssetCategory,
 } from '../types/simulation'
 
 const END_AGE = 90
 
-/**
- * 指定年齢においてアイテムが有効な月数を返す。
- * to === null のアイテムは一時金なので 0 を返す（getOneTimeAmount で別途処理）。
- */
 function getActiveMonths(from: IPlanItem['from'], to: NonNullable<IPlanItem['to']>, age: number): number {
   if (age < from.age || age > to.age) return 0
   const startMonth = age === from.age ? from.month : 1
@@ -22,16 +19,12 @@ function getActiveMonths(from: IPlanItem['from'], to: NonNullable<IPlanItem['to'
 }
 
 function getItemAnnualAmount(item: IPlanItem, age: number): number {
-  if (item.to === null) {
-    // 一時金: from.age の年のみ適用
-    return item.from.age === age ? item.value : 0
-  }
+  if (item.to === null) return item.from.age === age ? item.value : 0
   return item.value * getActiveMonths(item.from, item.to, age)
 }
 
 function getContributionAnnualAmount(period: ContributionPeriod, age: number): number {
   if (period.to === null) {
-    // 終了なし（indefinitely）
     if (age < period.from.age) return 0
     const startMonth = age === period.from.age ? period.from.month : 1
     return period.monthlyAmount * (13 - startMonth)
@@ -44,12 +37,9 @@ export function calculate(input: SimulationInput): SimulationResult {
   const startAge = family.representative.age
   const years: YearlyData[] = []
 
-  // 開始時点で既に始まっているアセットを初期化
   const assetBalances = new Map<string, number>()
   for (const asset of assetItems) {
-    if (asset.from.age <= startAge) {
-      assetBalances.set(asset.id, asset.initialAmount)
-    }
+    if (asset.from.age <= startAge) assetBalances.set(asset.id, asset.initialAmount)
   }
 
   let liquidSavings = 0
@@ -58,16 +48,15 @@ export function calculate(input: SimulationInput): SimulationResult {
     const elapsed = age - startAge
     const spouseAge = family.hasSpouse ? family.spouse.age + elapsed : null
 
-    // 今年から始まるアセットを初期化
     for (const asset of assetItems) {
       if (age === asset.from.age && !assetBalances.has(asset.id)) {
         assetBalances.set(asset.id, asset.initialAmount)
       }
     }
 
-    // 収入集計
+    // 収入
     let annualIncome = 0
-    const incomeBreakdown = {} as Record<IncomeCategory, number>
+    const incomeBreakdown = {} as Partial<Record<IncomeCategory, number>>
     for (const item of incomeItems) {
       const amount = getItemAnnualAmount(item, age)
       if (amount > 0) {
@@ -76,9 +65,9 @@ export function calculate(input: SimulationInput): SimulationResult {
       }
     }
 
-    // 支出集計
+    // 支出
     let annualExpenses = 0
-    const expenseBreakdown = {} as Record<ExpenseCategory, number>
+    const expenseBreakdown = {} as Partial<Record<ExpenseCategory, number>>
     for (const item of expenseItems) {
       const amount = getItemAnnualAmount(item, age)
       if (amount > 0) {
@@ -87,8 +76,11 @@ export function calculate(input: SimulationInput): SimulationResult {
       }
     }
 
-    // 資産運用: 積立 + 運用益
-    let totalAnnualContributions = 0
+    // 資産運用
+    let totalContributions = 0
+    let totalReturnAmount = 0
+    const assetCategoryBalances = {} as Partial<Record<AssetCategory, number>>
+
     for (const asset of assetItems) {
       if (!assetBalances.has(asset.id)) continue
       const prevBalance = assetBalances.get(asset.id)!
@@ -97,16 +89,21 @@ export function calculate(input: SimulationInput): SimulationResult {
       for (const period of asset.contributions) {
         annualContrib += getContributionAnnualAmount(period, age)
       }
-      totalAnnualContributions += annualContrib
+      totalContributions += annualContrib
 
       const returnAmount = prevBalance > 0 ? prevBalance * (asset.annualReturn / 100) : 0
-      assetBalances.set(asset.id, prevBalance + annualContrib + returnAmount)
+      totalReturnAmount += returnAmount
+
+      const newBalance = prevBalance + annualContrib + returnAmount
+      assetBalances.set(asset.id, newBalance)
+
+      // カテゴリ別残高を集計
+      assetCategoryBalances[asset.category] =
+        (assetCategoryBalances[asset.category] ?? 0) + newBalance
     }
 
-    // 現金収支（収入 - 支出 - 積立拠出）
-    liquidSavings += annualIncome - annualExpenses - totalAnnualContributions
+    liquidSavings += annualIncome - annualExpenses - totalContributions
 
-    // 総資産 = 現金 + 運用資産合計
     let totalInvestments = 0
     for (const balance of assetBalances.values()) totalInvestments += balance
     const assetsEnd = liquidSavings + totalInvestments
@@ -117,6 +114,10 @@ export function calculate(input: SimulationInput): SimulationResult {
       incomeAnnual: annualIncome,
       expensesAnnual: annualExpenses,
       netAnnual: annualIncome - annualExpenses,
+      contributionsAnnual: totalContributions,
+      investmentReturnAnnual: totalReturnAmount,
+      liquidSavings,
+      assetCategoryBalances,
       assetsEnd,
       incomeBreakdown,
       expenseBreakdown,

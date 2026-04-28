@@ -3,7 +3,7 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine, AreaChart, Area,
 } from 'recharts'
-import type { YearlyData, ExpenseCategory } from '../types/simulation'
+import type { YearlyData, ExpenseCategory, AssetCategory } from '../types/simulation'
 
 interface Props {
   years: YearlyData[]
@@ -19,12 +19,21 @@ const EXPENSE_COLORS: Record<ExpenseCategory, string> = {
   'その他': '#64748b',
 }
 
+const ASSET_COLORS: Record<AssetCategory, string> = {
+  '現金・預金': '#10b981',
+  '積み立て': '#6366f1',
+  '投資': '#f59e0b',
+  'その他': '#64748b',
+}
+
+const CONTRIB_COLOR = '#34d399'
 const INCOME_COLOR = '#10b981'
+const LIQUID_COLOR = '#94a3b8'
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl bg-[#0f1623] border border-white/10 px-4 py-3 text-sm shadow-xl">
+    <div className="rounded-xl bg-[#0f1623] border border-white/10 px-4 py-3 text-sm shadow-xl max-w-xs">
       <p className="text-white/60 mb-2 font-medium">{label}歳</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }} className="leading-6">
@@ -42,15 +51,24 @@ export function AssetChart({ years }: Props) {
     ...new Set(years.flatMap((y) => Object.keys(y.expenseBreakdown) as ExpenseCategory[])),
   ]
 
+  const assetCategories = [
+    ...new Set(years.flatMap((y) => Object.keys(y.assetCategoryBalances) as AssetCategory[])),
+  ]
+
   const cashflowData = years.map((y) => ({
     age: y.age,
     収入: y.incomeAnnual,
-    ...Object.fromEntries(
-      expenseCategories.map((cat) => [cat, y.expenseBreakdown[cat] ?? 0])
-    ),
+    積立: y.contributionsAnnual,
+    ...Object.fromEntries(expenseCategories.map((cat) => [cat, y.expenseBreakdown[cat] ?? 0])),
   }))
 
-  const assetData = years.map((y) => ({ age: y.age, 資産残高: y.assetsEnd }))
+  const assetData = years.map((y) => ({
+    age: y.age,
+    現金余剰: Math.max(0, y.liquidSavings),
+    ...Object.fromEntries(assetCategories.map((cat) => [cat, y.assetCategoryBalances[cat] ?? 0])),
+    資産残高合計: y.assetsEnd,
+  }))
+
   const tickInterval = Math.max(1, Math.floor(years.length / 10))
 
   const xAxisProps = {
@@ -94,24 +112,37 @@ export function AssetChart({ years }: Props) {
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingTop: 16 }} />
             {expenseCategories.map((cat) => (
-              <Bar key={cat} dataKey={cat} stackId="exp" fill={EXPENSE_COLORS[cat]} />
+              <Bar key={cat} dataKey={cat} stackId="out" fill={EXPENSE_COLORS[cat]} />
             ))}
+            <Bar dataKey="積立" stackId="out" fill={CONTRIB_COLOR} />
             <Line type="monotone" dataKey="収入" stroke={INCOME_COLOR} strokeWidth={2} dot={false} />
           </ComposedChart>
         ) : (
           <AreaChart data={assetData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
             <defs>
-              <linearGradient id="assetGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+              {assetCategories.map((cat) => (
+                <linearGradient key={cat} id={`grad-${cat}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={ASSET_COLORS[cat]} stopOpacity={0.5} />
+                  <stop offset="95%" stopColor={ASSET_COLORS[cat]} stopOpacity={0.05} />
+                </linearGradient>
+              ))}
+              <linearGradient id="grad-liquid" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={LIQUID_COLOR} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={LIQUID_COLOR} stopOpacity={0.02} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingTop: 16 }} />
             <ReferenceLine y={0} stroke="rgba(239,68,68,0.5)" strokeDasharray="4 4" />
-            <Area type="monotone" dataKey="資産残高" stroke="#10b981" strokeWidth={2} fill="url(#assetGradient)" />
+            <Area type="monotone" dataKey="現金余剰" stackId="assets" stroke={LIQUID_COLOR}
+              fill="url(#grad-liquid)" strokeWidth={1} />
+            {assetCategories.map((cat) => (
+              <Area key={cat} type="monotone" dataKey={cat} stackId="assets"
+                stroke={ASSET_COLORS[cat]} fill={`url(#grad-${cat})`} strokeWidth={1} />
+            ))}
           </AreaChart>
         )}
       </ResponsiveContainer>
