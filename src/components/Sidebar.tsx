@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/family', icon: '👨‍👩‍👧', label: '家族構成' },
   { to: '/income', icon: '💼', label: '収入' },
   { to: '/expenses', icon: '🏠', label: '支出' },
+  { to: '/assets', icon: '📈', label: '資産・運用' },
 ]
 
 export function Sidebar() {

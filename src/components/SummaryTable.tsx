@@ -17,7 +17,7 @@ export function SummaryTable({ years }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10">
-              {['年齢', '年収入', '年支出', '年収支', '資産残高'].map((h) => (
+              {['年齢', '収入', '支出', '収支', '資産残高'].map((h) => (
                 <th
                   key={h}
                   className="px-4 py-3 text-right first:text-left text-white/40 font-medium"

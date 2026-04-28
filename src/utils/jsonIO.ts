@@ -12,6 +12,6 @@ export function exportToJSON(input: SimulationInput) {
 }
 
 export function parseJSON(jsonString: string): SimulationInput {
-  const { family, income, expenses } = JSON.parse(jsonString)
-  return { family, income, expenses }
+  const { family, incomeItems, expenseItems, assetItems } = JSON.parse(jsonString)
+  return { family, incomeItems, expenseItems, assetItems }
 }

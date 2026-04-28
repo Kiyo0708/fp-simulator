@@ -31,12 +31,11 @@ export default function ResultPage() {
   if (!years.length) return null
 
   const first = years[0]
-  const atRetirement = years.find((y) => y.age === input.income.retirementAge) ?? years[years.length - 1]
+  // 給与収入が終わる最後の年齢を退職年齢の目安とする
+  const lastIncomeAge = years.findLast((y) => y.incomeAnnual > 0)?.age ?? years[years.length - 1].age
+  const atRetirement = years.find((y) => y.age === lastIncomeAge) ?? years[years.length - 1]
   const last = years[years.length - 1]
-  const monthlyNet = (first.netAnnual / 12)
-  const spouseAgeDiff = input.family.hasSpouse
-    ? input.family.spouse.age - input.family.representative.age
-    : null
+  const monthlyNet = first.netAnnual / 12
 
   const fmt = (v: number) => `${Math.round(v).toLocaleString()}万円`
   const fmtNet = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v).toLocaleString()}万円`
@@ -68,7 +67,7 @@ export default function ResultPage() {
           color="#f59e0b"
         />
         <StatCard
-          label={`退職時(${input.income.retirementAge}歳)の資産`}
+          label={`収入終了時(${lastIncomeAge}歳)の資産`}
           value={fmt(atRetirement.assetsEnd)}
           color={atRetirement.assetsEnd >= 0 ? '#10b981' : '#ef4444'}
         />
@@ -91,7 +90,7 @@ export default function ResultPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
       >
-        <AssetChart years={years} spouseBaseAge={spouseAgeDiff} />
+        <AssetChart years={years} />
       </motion.div>
 
       {/* Table */}
