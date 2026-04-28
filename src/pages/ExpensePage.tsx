@@ -64,6 +64,13 @@ export default function ExpensePage() {
     [familyOptions, form.familyMemberId]
   )
 
+  const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((f) => ({ ...f, [k]: v }))
+
+  const onPersonChange = (id: string | null) => {
+    setForm((f) => ({ ...f, familyMemberId: id, from: { age: repAge, month: f.from.month } }))
+  }
+
   const startEdit = (item: ExpenseItem) => {
     setForm({
       familyMemberId: item.familyMemberId,
@@ -107,13 +114,6 @@ export default function ExpensePage() {
     navigate('/result')
   }
 
-  const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
-    setForm((f) => ({ ...f, [k]: v }))
-
-  const onPersonChange = (id: string | null) => {
-    setForm((f) => ({ ...f, familyMemberId: id, from: { age: repAge, month: f.from.month } }))
-  }
-
   const fmtPeriod = (item: ExpenseItem) => {
     const personAge = familyOptions.find((o) => o.id === item.familyMemberId)?.currentAge ?? repAge
     const ageDiff = repAge - personAge
@@ -123,14 +123,13 @@ export default function ExpensePage() {
   }
 
   const fmtValue = (item: ExpenseItem) =>
-    item.to === null
-      ? `${item.value.toLocaleString()}万円（一時払い）`
-      : `${item.value.toLocaleString()}万円/月`
+    item.to === null ? `${item.value.toLocaleString()}万円（一時払い）` : `${item.value.toLocaleString()}万円/月`
 
   const memberLabel = (id: string | null) =>
     familyOptions.find((o) => o.id === id)?.label ?? '世帯全体'
 
-  const InlineForm = () => (
+  // ── インラインフォーム（JSX変数として定義 → コンポーネント再マウントを防ぐ）
+  const inlineForm = (
     <div className="flex flex-col gap-4 pt-4 border-t border-white/10 mt-4">
       <div className="flex flex-col gap-1.5">
         <label className="text-sm text-white/60">カテゴリ</label>
@@ -179,30 +178,24 @@ export default function ExpensePage() {
         </div>
       </div>
 
-      <AgeMonthInput
-        label="開始"
-        value={form.from}
-        onChange={(v) => setF('from', v)}
-        repCurrentAge={repAge}
-        personCurrentAge={selectedPersonAge}
-      />
+      <AgeMonthInput label="開始" value={form.from} onChange={(v) => setF('from', v)}
+        repCurrentAge={repAge} personCurrentAge={selectedPersonAge} />
       {!form.isOneTime && (
-        <AgeMonthInput
-          label="終了"
-          value={form.to}
-          onChange={(v) => setF('to', v)}
-          repCurrentAge={repAge}
-          personCurrentAge={selectedPersonAge}
-        />
+        <AgeMonthInput label="終了" value={form.to} onChange={(v) => setF('to', v)}
+          repCurrentAge={repAge} personCurrentAge={selectedPersonAge} />
       )}
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm text-white/60">
           {form.isOneTime ? '金額（万円）' : '月額（万円/月）'}
         </label>
-        <input type="number" min={0} value={form.value}
-          onChange={(e) => setF('value', Number(e.target.value))}
-          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors" />
+        <input
+          type="number"
+          min={0}
+          value={form.value}
+          onChange={(e) => setF('value', e.target.value === '' ? 0 : Number(e.target.value))}
+          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors"
+        />
       </div>
 
       <div className="flex gap-2">
@@ -227,7 +220,7 @@ export default function ExpensePage() {
         <div className="flex flex-col gap-3 mb-4">
           {items.map((item) => (
             <div key={item.id} className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              {editingId === item.id ? <InlineForm /> : (
+              {editingId === item.id ? inlineForm : (
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
@@ -254,7 +247,7 @@ export default function ExpensePage() {
           {editingId === '__new__' && (
             <div className="rounded-2xl bg-white/5 border border-amber-400/20 p-4">
               <p className="text-sm font-semibold text-amber-300 mb-1">新しい支出を追加</p>
-              <InlineForm />
+              {inlineForm}
             </div>
           )}
         </div>

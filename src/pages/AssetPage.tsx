@@ -28,14 +28,6 @@ interface ContribForm {
   to: AgeMonth | null
 }
 
-function defaultAssetForm(repAge: number): AssetForm {
-  return { category: '積み立て', initialAmount: 0, annualReturn: 5, from: { age: repAge, month: 1 } }
-}
-
-function defaultContribForm(repAge: number): ContribForm {
-  return { monthlyAmount: 3, from: { age: repAge, month: 1 }, to: null }
-}
-
 export default function AssetPage() {
   const { input, setAssetItems } = useSimulationStore()
   const navigate = useNavigate()
@@ -43,9 +35,16 @@ export default function AssetPage() {
 
   const [assets, setAssets] = useState<AssetItem[]>(input.assetItems)
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null)
-  const [assetForm, setAssetForm] = useState<AssetForm>(defaultAssetForm(repAge))
+  const [assetForm, setAssetForm] = useState<AssetForm>({
+    category: '積み立て', initialAmount: 0, annualReturn: 5, from: { age: repAge, month: 1 },
+  })
   const [editingContribKey, setEditingContribKey] = useState<{ assetId: string; contribId: string } | null>(null)
-  const [contribForm, setContribForm] = useState<ContribForm>(defaultContribForm(repAge))
+  const [contribForm, setContribForm] = useState<ContribForm>({
+    monthlyAmount: 3, from: { age: repAge, month: 1 }, to: null,
+  })
+
+  const setAF = <K extends keyof AssetForm>(k: K, v: AssetForm[K]) => setAssetForm((f) => ({ ...f, [k]: v }))
+  const setCF = <K extends keyof ContribForm>(k: K, v: ContribForm[K]) => setContribForm((f) => ({ ...f, [k]: v }))
 
   // --- Asset CRUD ---
   const startEditAsset = (asset: AssetItem) => {
@@ -54,22 +53,19 @@ export default function AssetPage() {
   }
 
   const startAddAsset = () => {
-    setAssetForm(defaultAssetForm(repAge))
+    setAssetForm({ category: '積み立て', initialAmount: 0, annualReturn: 5, from: { age: repAge, month: 1 } })
     setEditingAssetId('__new__')
   }
 
   const commitAsset = () => {
     if (editingAssetId === '__new__') {
-      const newAsset = new AssetItem(crypto.randomUUID(), assetForm.category, assetForm.initialAmount, assetForm.annualReturn, assetForm.from, [])
-      setAssets((prev) => [...prev, newAsset])
+      setAssets((prev) => [...prev, new AssetItem(crypto.randomUUID(), assetForm.category, assetForm.initialAmount, assetForm.annualReturn, assetForm.from, [])])
     } else {
-      setAssets((prev) =>
-        prev.map((a) =>
-          a.id === editingAssetId
-            ? new AssetItem(a.id, assetForm.category, assetForm.initialAmount, assetForm.annualReturn, assetForm.from, a.contributions)
-            : a
-        )
-      )
+      setAssets((prev) => prev.map((a) =>
+        a.id === editingAssetId
+          ? new AssetItem(a.id, assetForm.category, assetForm.initialAmount, assetForm.annualReturn, assetForm.from, a.contributions)
+          : a
+      ))
     }
     setEditingAssetId(null)
   }
@@ -78,7 +74,7 @@ export default function AssetPage() {
 
   // --- Contribution CRUD ---
   const startAddContrib = (assetId: string) => {
-    setContribForm(defaultContribForm(repAge))
+    setContribForm({ monthlyAmount: 3, from: { age: repAge, month: 1 }, to: null })
     setEditingContribKey({ assetId, contribId: '__new__' })
   }
 
@@ -92,30 +88,24 @@ export default function AssetPage() {
     const { assetId, contribId } = editingContribKey
     const newContrib = new ContributionPeriod(
       contribId === '__new__' ? crypto.randomUUID() : contribId,
-      contribForm.monthlyAmount,
-      contribForm.from,
-      contribForm.to,
+      contribForm.monthlyAmount, contribForm.from, contribForm.to,
     )
-    setAssets((prev) =>
-      prev.map((a) => {
-        if (a.id !== assetId) return a
-        const contribs = contribId === '__new__'
-          ? [...a.contributions, newContrib]
-          : a.contributions.map((c) => (c.id === contribId ? newContrib : c))
-        return new AssetItem(a.id, a.category, a.initialAmount, a.annualReturn, a.from, contribs)
-      })
-    )
+    setAssets((prev) => prev.map((a) => {
+      if (a.id !== assetId) return a
+      const contribs = contribId === '__new__'
+        ? [...a.contributions, newContrib]
+        : a.contributions.map((c) => (c.id === contribId ? newContrib : c))
+      return new AssetItem(a.id, a.category, a.initialAmount, a.annualReturn, a.from, contribs)
+    }))
     setEditingContribKey(null)
   }
 
   const removeContrib = (assetId: string, contribId: string) => {
-    setAssets((prev) =>
-      prev.map((a) =>
-        a.id === assetId
-          ? new AssetItem(a.id, a.category, a.initialAmount, a.annualReturn, a.from, a.contributions.filter((c) => c.id !== contribId))
-          : a
-      )
-    )
+    setAssets((prev) => prev.map((a) =>
+      a.id === assetId
+        ? new AssetItem(a.id, a.category, a.initialAmount, a.annualReturn, a.from, a.contributions.filter((c) => c.id !== contribId))
+        : a
+    ))
   }
 
   const save = () => {
@@ -123,10 +113,8 @@ export default function AssetPage() {
     navigate('/result')
   }
 
-  const setAF = <K extends keyof AssetForm>(k: K, v: AssetForm[K]) => setAssetForm((f) => ({ ...f, [k]: v }))
-  const setCF = <K extends keyof ContribForm>(k: K, v: ContribForm[K]) => setContribForm((f) => ({ ...f, [k]: v }))
-
-  const AssetForm = () => (
+  // ── 資産フォーム（JSX変数 → 再マウント防止）
+  const assetFormJSX = (
     <div className="flex flex-col gap-4 pt-4 border-t border-white/10 mt-4">
       <div className="flex flex-col gap-1.5">
         <label className="text-sm text-white/60">カテゴリ</label>
@@ -142,15 +130,21 @@ export default function AssetPage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <label className="text-sm text-white/60">初期残高（万円）</label>
-          <input type="number" min={0} value={assetForm.initialAmount}
-            onChange={(e) => setAF('initialAmount', Number(e.target.value))}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none transition-colors" />
+          <input
+            type="number" min={0}
+            value={assetForm.initialAmount}
+            onChange={(e) => setAF('initialAmount', e.target.value === '' ? 0 : Number(e.target.value))}
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors"
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm text-white/60">年間利回り（%）</label>
-          <input type="number" min={0} max={30} step={0.1} value={assetForm.annualReturn}
-            onChange={(e) => setAF('annualReturn', Number(e.target.value))}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none transition-colors" />
+          <input
+            type="number" min={0} max={30} step={0.1}
+            value={assetForm.annualReturn}
+            onChange={(e) => setAF('annualReturn', e.target.value === '' ? 0 : Number(e.target.value))}
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors"
+          />
         </div>
       </div>
       <AgeMonthInput label="開始年月" value={assetForm.from} onChange={(v) => setAF('from', v)} repCurrentAge={repAge} />
@@ -164,17 +158,21 @@ export default function AssetPage() {
     </div>
   )
 
-  const ContribFormPanel = (_: { assetId: string }) => (
+  // ── 積立フォーム（JSX変数 → 再マウント防止）
+  const contribFormJSX = (
     <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10 mt-2">
       <p className="text-xs font-semibold text-white/50">積立期間を追加</p>
       <div className="flex flex-col gap-1.5">
         <label className="text-sm text-white/60">月額（万円/月）</label>
-        <input type="number" min={0} value={contribForm.monthlyAmount}
-          onChange={(e) => setCF('monthlyAmount', Number(e.target.value))}
-          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-right focus:border-amber-400/40 focus:outline-none transition-colors" />
+        <input
+          type="number" min={0}
+          value={contribForm.monthlyAmount}
+          onChange={(e) => setCF('monthlyAmount', e.target.value === '' ? 0 : Number(e.target.value))}
+          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-right focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/30 transition-colors"
+        />
       </div>
       <AgeMonthInput label="開始" value={contribForm.from} onChange={(v) => setCF('from', v)} repCurrentAge={repAge} />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <label className="text-sm text-white/60 whitespace-nowrap">終了</label>
         <button
           type="button"
@@ -207,9 +205,7 @@ export default function AssetPage() {
         <div className="flex flex-col gap-4 mb-4">
           {assets.map((asset) => (
             <div key={asset.id} className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              {editingAssetId === asset.id ? (
-                <AssetForm />
-              ) : (
+              {editingAssetId === asset.id ? assetFormJSX : (
                 <>
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex flex-col gap-1">
@@ -217,7 +213,9 @@ export default function AssetPage() {
                         style={{ background: CATEGORY_COLORS[asset.category] + '22', color: CATEGORY_COLORS[asset.category] }}>
                         {asset.category}
                       </span>
-                      <p className="text-white/90 font-semibold">初期 {asset.initialAmount.toLocaleString()}万円 ・ 年利 {asset.annualReturn}%</p>
+                      <p className="text-white/90 font-semibold">
+                        初期 {asset.initialAmount.toLocaleString()}万円 ・ 年利 {asset.annualReturn}%
+                      </p>
                       <p className="text-xs text-white/40">開始: {asset.from.age}歳{asset.from.month}月</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
@@ -228,7 +226,6 @@ export default function AssetPage() {
                     </div>
                   </div>
 
-                  {/* Contributions */}
                   <div className="border-t border-white/10 pt-3">
                     <p className="text-xs text-white/40 mb-2">積立期間</p>
                     {asset.contributions.length === 0 && (
@@ -237,29 +234,28 @@ export default function AssetPage() {
                     <div className="flex flex-col gap-2">
                       {asset.contributions.map((contrib) => (
                         <div key={contrib.id}>
-                          {editingContribKey?.assetId === asset.id && editingContribKey.contribId === contrib.id ? (
-                            <ContribFormPanel assetId={asset.id} />
-                          ) : (
-                            <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
-                              <span className="text-sm text-white/70">
-                                {contrib.monthlyAmount}万円/月 ・{' '}
-                                {contrib.from.age}歳{contrib.from.month}月〜
-                                {contrib.to ? `${contrib.to.age}歳${contrib.to.month}月` : '終了なし'}
-                              </span>
-                              <div className="flex gap-1.5">
-                                <button onClick={() => startEditContrib(asset.id, contrib)}
-                                  className="text-xs px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10 transition-colors">編集</button>
-                                <button onClick={() => removeContrib(asset.id, contrib.id)}
-                                  className="text-xs px-2 py-0.5 rounded bg-white/5 text-red-400/60 hover:bg-red-400/10 transition-colors">削除</button>
+                          {editingContribKey?.assetId === asset.id && editingContribKey.contribId === contrib.id
+                            ? contribFormJSX
+                            : (
+                              <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                                <span className="text-sm text-white/70">
+                                  {contrib.monthlyAmount}万円/月 ・{' '}
+                                  {contrib.from.age}歳{contrib.from.month}月〜
+                                  {contrib.to ? `${contrib.to.age}歳${contrib.to.month}月` : '終了なし'}
+                                </span>
+                                <div className="flex gap-1.5">
+                                  <button onClick={() => startEditContrib(asset.id, contrib)}
+                                    className="text-xs px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10 transition-colors">編集</button>
+                                  <button onClick={() => removeContrib(asset.id, contrib.id)}
+                                    className="text-xs px-2 py-0.5 rounded bg-white/5 text-red-400/60 hover:bg-red-400/10 transition-colors">削除</button>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )
+                          }
                         </div>
                       ))}
 
-                      {editingContribKey?.assetId === asset.id && editingContribKey.contribId === '__new__' && (
-                        <ContribFormPanel assetId={asset.id} />
-                      )}
+                      {editingContribKey?.assetId === asset.id && editingContribKey.contribId === '__new__' && contribFormJSX}
 
                       {(!editingContribKey || editingContribKey.assetId !== asset.id) && (
                         <button type="button" onClick={() => startAddContrib(asset.id)}
@@ -277,7 +273,7 @@ export default function AssetPage() {
           {editingAssetId === '__new__' && (
             <div className="rounded-2xl bg-white/5 border border-amber-400/20 p-4">
               <p className="text-sm font-semibold text-amber-300 mb-1">新しい資産を追加</p>
-              <AssetForm />
+              {assetFormJSX}
             </div>
           )}
         </div>
