@@ -28,7 +28,6 @@ const ASSET_COLORS: Record<AssetCategory, string> = {
 
 const CONTRIB_COLOR = '#34d399'
 const INCOME_COLOR = '#10b981'
-const LIQUID_COLOR = '#94a3b8'
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -64,9 +63,7 @@ export function AssetChart({ years }: Props) {
 
   const assetData = years.map((y) => ({
     age: y.age,
-    現金余剰: Math.max(0, y.liquidSavings),
     ...Object.fromEntries(assetCategories.map((cat) => [cat, y.assetCategoryBalances[cat] ?? 0])),
-    資産残高合計: y.assetsEnd,
   }))
 
   const tickInterval = Math.max(1, Math.floor(years.length / 10))
@@ -126,10 +123,6 @@ export function AssetChart({ years }: Props) {
                   <stop offset="95%" stopColor={ASSET_COLORS[cat]} stopOpacity={0.05} />
                 </linearGradient>
               ))}
-              <linearGradient id="grad-liquid" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={LIQUID_COLOR} stopOpacity={0.4} />
-                <stop offset="95%" stopColor={LIQUID_COLOR} stopOpacity={0.02} />
-              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis {...xAxisProps} />
@@ -137,8 +130,6 @@ export function AssetChart({ years }: Props) {
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, paddingTop: 16 }} />
             <ReferenceLine y={0} stroke="rgba(239,68,68,0.5)" strokeDasharray="4 4" />
-            <Area type="monotone" dataKey="現金余剰" stackId="assets" stroke={LIQUID_COLOR}
-              fill="url(#grad-liquid)" strokeWidth={1} />
             {assetCategories.map((cat) => (
               <Area key={cat} type="monotone" dataKey={cat} stackId="assets"
                 stroke={ASSET_COLORS[cat]} fill={`url(#grad-${cat})`} strokeWidth={1} />
