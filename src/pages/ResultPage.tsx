@@ -100,7 +100,7 @@ export default function ResultPage() {
         transition={{ duration: 0.4, delay: 0.3 }}
       >
         <h2 className="text-sm font-semibold text-white/50 mb-3">年次サマリー</h2>
-        <SummaryTable years={years} />
+        <SummaryTable years={years} family={input.family} />
       </motion.div>
     </div>
   )
